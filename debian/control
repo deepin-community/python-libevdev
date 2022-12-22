@@ -1,0 +1,56 @@
+Source: python-libevdev
+Maintainer: Stephen Kitt <skitt@debian.org>
+Section: python
+Priority: optional
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               libevdev-dev,
+               python3-all,
+               python3-setuptools,
+               python3-sphinx,
+               python3-sphinx-rtd-theme
+Standards-Version: 4.5.1
+Vcs-Browser: https://salsa.debian.org/debian/python-libevdev
+Vcs-Git: https://salsa.debian.org/debian/python-libevdev.git
+Homepage: https://github.com/whot/python-libevdev
+Testsuite: autopkgtest-pkg-python
+Rules-Requires-Root: no
+
+Package: python3-libevdev
+Architecture: all
+# The direct dependency on libevdev2 isn’t ideal, but it’s embedded in
+# the source so soname bumps need a sourceful upload anyway
+Depends: libevdev2,
+         ${python3:Depends},
+         ${misc:Depends}
+Suggests: python-libevdev-doc
+Description: Python 3 wrapper for libevdev
+ This is a Python wrapper around libevdev, a wrapper library for evdev
+ devices. It provides a simpler API around evdev and takes advantage
+ of libevdev’s advanced event handling, providing
+ .
+  * access to the state of the device (not just the events)
+  * correct handling of fake multitouch devices
+  * synchronisation of slots and per-slot state
+  * transparent generation of missing tracking ids
+  * per-context event handling
+ .
+ This package installs the library for Python 3.
+
+Package: python-libevdev-doc
+Architecture: all
+Section: doc
+Depends: ${sphinxdoc:Depends},
+         ${misc:Depends}
+Description: Python wrapper for libevdev (common documentation)
+ This is a Python wrapper around libevdev, a wrapper library for evdev
+ devices. It provides a simpler API around evdev and takes advantage
+ of libevdev’s advanced event handling, providing
+ .
+  * access to the state of the device (not just the events)
+  * correct handling of fake multitouch devices
+  * synchronisation of slots and per-slot state
+  * transparent generation of missing tracking ids
+  * per-context event handling
+ .
+ This is the common documentation package.

@@ -1,0 +1,50 @@
+python-libevdev (0.5-3) unstable; urgency=low
+
+  [ Debian Janitor ]
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+
+  [ Stephen Kitt ]
+  * Standards-Version 4.5.1, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Sun, 17 Jan 2021 17:00:33 +0100
+
+python-libevdev (0.5-2) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * d/control: Remove ancient X-Python3-Version field
+  * Use 'python3 -m sphinx' instead of sphinx-build for building docs
+
+  [ Stephen Kitt ]
+  * Switch to debhelper compatibility level 13.
+  * Set “Rules-Requires-Root: no”.
+  * Standards-Version 4.5.0, no further change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Wed, 17 Jun 2020 23:03:56 +0200
+
+python-libevdev (0.5-1) unstable; urgency=medium
+
+  * New upstream release, renamed to python-libevdev.
+  * Enable automatic Python package tests.
+  * Standards-Version 4.1.4, no further change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Fri, 27 Apr 2018 20:54:08 +0200
+
+libevdev-python (0.3-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Install examples in the documentation package.
+
+ -- Stephen Kitt <skitt@debian.org>  Sat, 24 Feb 2018 12:52:35 +0100
+
+libevdev-python (0.2-2) unstable; urgency=medium
+
+  * Drop the Python 2 package, it is unused and doesn’t work.
+
+ -- Stephen Kitt <skitt@debian.org>  Fri, 19 Jan 2018 13:13:48 +0100
+
+libevdev-python (0.2-1) unstable; urgency=medium
+
+  * Initial release. Closes: #887309.
+
+ -- Stephen Kitt <skitt@debian.org>  Sun, 14 Jan 2018 22:33:49 +0100

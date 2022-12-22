@@ -1,0 +1,13 @@
+Document: python-libevdev
+Title: Debian python-libevdev Manual
+Author: Peter Hutterer
+Abstract: This manual describes python-libevdev
+ and how it can be used to read events from an
+ input device, create virtual input devices,
+ and duplicate an existing device to modify its
+ event stream.
+Section: Programming/Python
+
+Format: HTML
+Index: /usr/share/doc/python-libevdev-doc/html/index.html
+Files: /usr/share/doc/python-libevdev-doc/html/*.html
