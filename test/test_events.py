@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 # Copyright © 2017 Red Hat, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,35 +19,41 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import unittest
 
 import libevdev
-from libevdev import evbit, propbit, InputEvent
+from libevdev import InputEvent
 
-class TestEvents(unittest.TestCase):
+
+class TestEvents:
     def test_event_matches_type(self):
         ev = InputEvent(libevdev.EV_REL)
-        self.assertTrue(ev.matches(libevdev.EV_REL))
-        self.assertFalse(ev.matches(libevdev.EV_REL.REL_X))
-        self.assertFalse(ev.matches(libevdev.EV_ABS))
-        self.assertFalse(ev.matches(libevdev.EV_ABS.ABS_X))
+        assert ev.matches(libevdev.EV_REL)
+        assert not ev.matches(libevdev.EV_REL.REL_X)
+        assert not ev.matches(libevdev.EV_ABS)
+        assert not ev.matches(libevdev.EV_ABS.ABS_X)
 
     def test_event_matches_code(self):
         ev = InputEvent(libevdev.EV_REL.REL_X)
-        self.assertTrue(ev.matches(libevdev.EV_REL.REL_X))
-        self.assertTrue(ev.matches(libevdev.EV_REL))
-        self.assertFalse(ev.matches(libevdev.EV_ABS))
-        self.assertFalse(ev.matches(libevdev.EV_ABS.ABS_X))
+        assert ev.matches(libevdev.EV_REL.REL_X)
+        assert ev.matches(libevdev.EV_REL)
+        assert not ev.matches(libevdev.EV_ABS)
+        assert not ev.matches(libevdev.EV_ABS.ABS_X)
 
     def test_event_matches_self(self):
         e1 = InputEvent(libevdev.EV_REL.REL_X)
         e2 = InputEvent(libevdev.EV_REL)
-        self.assertEqual(e1, e1)
-        self.assertEqual(e2, e2)
+        assert e1 == e1
+        assert e2 == e2
 
-        self.assertEqual(e2, e1)
-        self.assertEqual(e1, e2)
+        assert e2 == e1
+        assert e1 == e2
 
         e2 = InputEvent(libevdev.EV_REL.REL_Y)
-        self.assertNotEqual(e2, e1)
-        self.assertNotEqual(e1, e2)
+        assert e2 != e1
+        assert e1 != e2
+
+    def test_event_matches_invalid(self):
+        e1 = InputEvent(libevdev.EV_REL.REL_X)
+        assert e1 != 0
+        assert e1 is not None
+        assert e1 != "foo"

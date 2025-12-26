@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 # Copyright © 2017 Red Hat, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,10 +19,12 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from __future__ import annotations
+
 from .const import EventType, EventCode
 
 
-class InputEvent(object):
+class InputEvent:
     """
     Represents one input event of type struct input_event as defined in
     ``linux/input.h`` and returned by ``libevdev_next_event()``.
@@ -46,10 +47,6 @@ class InputEvent(object):
         >>> e == InputEvent(libevdev.EV_REL.REL_X, value=2)
         False
 
-    .. attribute:: code
-
-        The :class:`EventCode` or :class:`EventType` for this input event
-
     .. attribute:: value
 
         The (optional) value for the event's axis
@@ -63,9 +60,16 @@ class InputEvent(object):
         The timestamp, microseconds
     """
 
-    def __init__(self, code, value=None, sec=0, usec=0):
+    def __init__(
+        self,
+        code: EventCode | EventType,
+        value: int | None = None,
+        sec: int = 0,
+        usec: int = 0,
+    ) -> None:
         assert isinstance(code, EventCode) or isinstance(code, EventType)
 
+        self._code: EventCode | None
         if isinstance(code, EventCode):
             self._type = code.type
             self._code = code
@@ -77,22 +81,22 @@ class InputEvent(object):
         self.value = value
 
     @property
-    def code(self):
+    def code(self) -> EventCode | None:
         """
-        :return: the EventCode for this event or None
+        :return: The :class:`EventCode` or :class:`EventType` for this input event
         :rtype: EventCode
         """
         return self._code
 
     @property
-    def type(self):
+    def type(self) -> EventType:
         """
         :return: the event type for this event
         :rtype: EventType
         """
         return self._type
 
-    def matches(self, code, value=None):
+    def matches(self, code: EventType | EventCode, value: int | None = None) -> bool:
         """
         :param code: the event type or code
         :type code: EventType or EventCode
@@ -124,7 +128,7 @@ class InputEvent(object):
         else:
             return self._code == code
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, InputEvent):
             return False
 
@@ -133,9 +137,9 @@ class InputEvent(object):
 
         return self.matches(other.code, other.value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         tname = self.type.name
         cname = None
         if self.code is not None:
             cname = self.code.name
-        return 'InputEvent({}, {}, {})'.format(tname, cname, self.value)
+        return f"InputEvent({tname}, {cname}, {self.value})"

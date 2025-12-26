@@ -15,8 +15,7 @@ Source code
 -----------
 
 The source code for this project is available at
-http://github.com/whot/python-libevdev
-
+https://gitlab.freedesktop.org/libevdev/python-libevdev
 
 Installation
 ------------
@@ -35,7 +34,7 @@ For more details on using pip and the PyPI, please see https://pypi.python.org/p
 
 Otherwise, you can install it from the git repository::
 
-        git clone http://github.com/whot/python-libevdev
+        git clone https://gitlab.freedesktop.org/libevdev/python-libevdev.git
         cd python-libevdev
         sudo ./setup.py install
 
@@ -86,10 +85,11 @@ page.
 To read events from an existing device::
 
         import libevdev
+        import sys
 
         fd = open('/dev/input/event0', 'rb')
         d = libevdev.Device(fd)
-        if not d.has(libevdev.EV_KEY.BTN_LEFT):
+        if not d.has(libevdev.BTN_LEFT):
              print('This does not look like a mouse device')
              sys.exit(0)
 
@@ -100,9 +100,9 @@ To read events from an existing device::
                 if not e.matches(libevdev.EV_KEY):
                     continue
 
-                if e.matches(libevdev.EV_KEY.BTN_LEFT):
+                if e.matches(libevdev.BTN_LEFT):
                     print('Left button event')
-                elif e.matches(libevdev.EV_KEY.BTN_RIGHT):
+                elif e.matches(libevdev.BTN_RIGHT):
                     print('Right button event')
 
 .. note::
@@ -118,15 +118,15 @@ To create a new uinput device with a specific set of events::
         d.name = 'some test device'
         d.enable(libevdev.EV_REL.REL_X)
         d.enable(libevdev.EV_REL.REL_Y)
-        d.enable(libevdev.EV_KEY.BTN_LEFT)
-        d.enable(libevdev.EV_KEY.BTN_MIDDLE)
-        d.enable(libevdev.EV_KEY.BTN_RIGHT)
+        d.enable(libevdev.BTN_LEFT)
+        d.enable(libevdev.BTN_MIDDLE)
+        d.enable(libevdev.BTN_RIGHT)
 
         uinput = d.create_uinput_device()
         print('new uinput test device at {}'.format(uinput.devnode))
-        events = [InputEvent(libevdev.EV_REL.REL_X, 1),
-                  InputEvent(libevdev.EV_REL.REL_Y, 1),
-                  InputEvent(libevdev.EV_SYN.SYN_REPORT, 0)]
+        events = [InputEvent(libevdev.REL_X, 1),
+                  InputEvent(libevdev.REL_Y, 1),
+                  InputEvent(libevdev.SYN_REPORT, 0)]
         uinput.send_events(events)
 
 .. note::

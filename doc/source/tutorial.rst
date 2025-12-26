@@ -4,7 +4,9 @@ Tutorial
 This is a tutorial on using libevdev's Python wrapper. It is not a tutorial
 on the evdev protocol, basic knowledge of how evdev works is assumed.
 Specifically, you're expected to know what an event type and an event code
-is. If you don't, read https://who-t.blogspot.com.au/2016/09/understanding-evdev.html first.
+is. If you don't, read
+`Understanding evdev
+<https://who-t.blogspot.com.au/2016/09/understanding-evdev.html>`_ first.
 
 The basic building blocks
 -------------------------
@@ -19,7 +21,7 @@ relies on the caller using wrapped event code objects rather than just
 strings and numbers, :func:`evbit() <libevdev.const.evbit()>` converts from
 one to the other.
 
-Event types and codes 
+Event types and codes
 ---------------------
 
 In raw evdev, each event has an event type and an event code. These are just
@@ -39,6 +41,17 @@ All event codes and types are exposed in the libevdev module namespace::
         EV_ABS
 
         >>> c = libevdev.EV_ABS.ABS_X
+        >>> print(c)
+        ABS_X:0
+        >>> print(c.value)
+        0
+        >>> print(c.name)
+        ABS_X
+
+        # This same event code is also available directly:
+        >>> c = libevdev.ABS_X
+        >>> c == libevdev.EV_ABS.ABS_X
+        True
         >>> print(c)
         ABS_X:0
         >>> print(c.value)
@@ -79,7 +92,7 @@ that comes out::
 
         >>> print(libevdev.evbit(3, 0))
         ABS_X:0
-        >>> libevdev.evbit(3, 0) == libevdev.EV_ABS.ABS_X
+        >>> libevdev.evbit(3, 0) == libevdev.ABS_X
         True
 
 For the cases where the data is strings, it works much in the same way::
@@ -91,12 +104,12 @@ For the cases where the data is strings, it works much in the same way::
 
         >>> print(libevdev.evbit('EV_ABS', 'ABS_X'))
         ABS_X:0
-        >>> libevdev.evbit('EV_ABS', 'ABS_X') == libevdev.EV_ABS.ABS_X
+        >>> libevdev.evbit('EV_ABS', 'ABS_X') == libevdev.ABS_X
         True
 
         >>> print(libevdev.evbit('ABS_X'))
         ABS_X:0
-        >>> libevdev.evbit('ABS_X') == libevdev.EV_ABS.ABS_X
+        >>> libevdev.evbit('ABS_X') == libevdev.ABS_X
         True
 
 Most of the event code strings are unique, so as you can see in the third
@@ -104,6 +117,8 @@ example above, the event type isn't needed when converting from string.
 
 Ok, now that we know how to deal with event codes and types, we can move on
 to actually using those.
+
+.. _opening_a_device:
 
 Opening a device
 ----------------
@@ -116,9 +131,11 @@ devices either - you can easily figure that out yourself by looping through
 the file system or using libudev.
 
 The simplest case (and good enough for most applications) is a mere call to
-``open``::
+``open``, optionally followed by a call to ``fcntl`` to switch the file
+descriptor into non-blocking mode::
 
         >>> fd = open("/dev/input/event0", "rb")
+        >>> fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
         >>> device = libevdev.Device(fd)
         >>> print(device.name)
         Lid Switch
@@ -128,7 +145,7 @@ events from it later or even modify the kernel device.
 
 That's it. libevdev doesn't really care how you opened the device, as long
 as ``fileno()`` works on it it'll take it. Now we can move on to actually
-handling the device
+handling the device.
 
 Querying and modifying device capabilities
 ------------------------------------------
@@ -165,7 +182,7 @@ behaving correctly.
 
 .. note::
 
-        Enabling absolute axes requires extra data. See 
+        Enabling absolute axes requires extra data. See
         :func:`disable <libevdev.device.Device.enable>` for details.
 
 Reading events
@@ -197,7 +214,7 @@ types, codes and/or values::
             if e.matches(libevdev.EV_MSC):
                 continue  # don't care about those
 
-            if e.matches(libevdev.EV_REL.REL_X:
+            if e.matches(libevdev.EV_REL.REL_X):
                 move_by(e.value, 0)
             elif e.matches(libevdev.EV_REL.REL_Y):
                 move_by(0, e.value)
@@ -211,6 +228,16 @@ comparisons::
 
         if btn in device.events():
             print('There is a button event in there')
+
+The above examples all depened on whether ``os.O_NONBLOCK`` was set on the
+file descriptor after the initial ``open`` call:
+
+- ``os.O_NONBLOCK`` is set: :func:`events <libevdev.device.Device.events>`
+  returns immediately when no events are available.
+- ``os.O_NONBLOCK`` is **not** set: :func:`events
+  <libevdev.device.Device.events>` blocks until events become available
+
+See :ref:`opening_a_device` for an example on setting ``os.O_NONBLOCK``.
 
 Creating uinput devices
 -----------------------

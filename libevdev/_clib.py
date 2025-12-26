@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 # Copyright © 2016 Red Hat, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,6 +19,8 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from __future__ import annotations
+
 import libevdev
 
 import os
@@ -32,6 +33,13 @@ from ctypes import c_void_p
 from ctypes import c_long
 from ctypes import c_int32
 from ctypes import c_uint16
+from typing import BinaryIO, Tuple
+
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 
 READ_FLAG_SYNC = 0x1
 READ_FLAG_NORMAL = 0x2
@@ -40,26 +48,31 @@ READ_FLAG_BLOCKING = 0x8
 
 
 class _InputAbsinfo(ctypes.Structure):
-    _fields_ = [("value", c_int32),
-                ("minimum", c_int32),
-                ("maximum", c_int32),
-                ("fuzz", c_int32),
-                ("flat", c_int32),
-                ("resolution", c_int32)]
+    _fields_ = [
+        ("value", c_int32),
+        ("minimum", c_int32),
+        ("maximum", c_int32),
+        ("fuzz", c_int32),
+        ("flat", c_int32),
+        ("resolution", c_int32),
+    ]
 
 
 class _InputEvent(ctypes.Structure):
-    _fields_ = [("sec", c_long),
-                ("usec", c_long),
-                ("type", c_uint16),
-                ("code", c_uint16),
-                ("value", c_int32)]
+    _fields_ = [
+        ("sec", c_long),
+        ("usec", c_long),
+        ("type", c_uint16),
+        ("code", c_uint16),
+        ("value", c_int32),
+    ]
 
 
-class _LibraryWrapper(object):
+class _LibraryWrapper:
     """
     Base class for wrapping a shared library. Do not use directly.
     """
+
     _lib = None  # The shared library, shared between instances of the class
 
     # List of API prototypes, must be set by the subclass
@@ -72,16 +85,16 @@ class _LibraryWrapper(object):
     }
 
     def __init__(self):
-        super(_LibraryWrapper, self).__init__()
+        super().__init__()
         self._load()
 
     @classmethod
-    def _load(cls):
+    def _load(cls) -> ctypes.CDLL:
         if cls._lib is not None:
             return cls._lib
 
         cls._lib = cls._cdll()
-        for (name, attrs) in cls._api_prototypes.items():
+        for name, attrs in cls._api_prototypes.items():
             func = getattr(cls._lib, name)
             func.argtypes = attrs["argtypes"]
             func.restype = attrs["restype"]
@@ -96,7 +109,7 @@ class _LibraryWrapper(object):
         return cls._lib
 
     @staticmethod
-    def _cdll():
+    def _cdll() -> ctypes.CDLL:
         """Override in subclass"""
         raise NotImplementedError
 
@@ -106,7 +119,7 @@ class Libevdev(_LibraryWrapper):
     This class provides a wrapper around the libevdev C library.
 
     The API is modelled closely after the C API. API documentation in this
-    document only lists the specific behavior of the Phython API. For
+    document only lists the specific behavior of the Python API. For
     information on the behavior of libevdev itself, see
 
     https://www.freedesktop.org/software/libevdev/doc/latest/
@@ -119,29 +132,47 @@ class Libevdev(_LibraryWrapper):
     """
 
     @staticmethod
-    def _cdll():
+    def _cdll() -> ctypes.CDLL:
         return ctypes.CDLL("libevdev.so.2", use_errno=True)
 
     _api_prototypes = {
         # const char *libevdev_event_type_get_name(unsigned int type);
-        "libevdev_event_type_get_name": {
-            "argtypes": (c_uint,),
-            "restype": c_char_p
-        },
+        "libevdev_event_type_get_name": {"argtypes": (c_uint,), "restype": c_char_p},
         # int libevdev_event_type_from_name(const char *name);
-        "libevdev_event_type_from_name": {
-            "argtypes": (c_char_p,),
-            "restype": c_int
-        },
+        "libevdev_event_type_from_name": {"argtypes": (c_char_p,), "restype": c_int},
         # const char *libevdev_event_code_get_name(unsigned int type, unsigned int code);
         "libevdev_event_code_get_name": {
-            "argtypes": (c_uint, c_uint,),
-            "restype": c_char_p
+            "argtypes": (
+                c_uint,
+                c_uint,
+            ),
+            "restype": c_char_p,
         },
         # int libevdev_event_code_from_name(unsigned int type, const char *name);
         "libevdev_event_code_from_name": {
-            "argtypes": (c_uint, c_char_p,),
-            "restype": c_int
+            "argtypes": (
+                c_uint,
+                c_char_p,
+            ),
+            "restype": c_int,
+        },
+        # const char *libevdev_event_value_get_name(unsigned int type, unsigned int code, int value);
+        "libevdev_event_value_get_name": {
+            "argtypes": (
+                c_uint,
+                c_uint,
+                c_int,
+            ),
+            "restype": c_char_p,
+        },
+        # int libevdev_event_value_from_name(unsigned int type, unsigned int code, const char *name);
+        "libevdev_event_value_from_name": {
+            "argtypes": (
+                c_uint,
+                c_uint,
+                c_char_p,
+            ),
+            "restype": c_int,
         },
         # const char *libevdev_property_get_name(unsigned int prop);
         "libevdev_property_get_name": {
@@ -149,13 +180,10 @@ class Libevdev(_LibraryWrapper):
             "restype": c_char_p,
         },
         # int libevdev_property_from_name(const char *name);
-        "libevdev_property_from_name": {
-            "argtypes": (c_char_p,),
-            "restype": c_int
-        },
+        "libevdev_property_from_name": {"argtypes": (c_char_p,), "restype": c_int},
         # void libevdev_event_type_get_max(int)
         "libevdev_event_type_get_max": {
-            "argtypes": (c_int, ),
+            "argtypes": (c_int,),
             "restype": c_int,
         },
         # struct libevdev *libevdev_new(void);
@@ -203,7 +231,7 @@ class Libevdev(_LibraryWrapper):
         },
         # int libevdev_get_driver_version(struct libevdev *);
         "libevdev_get_driver_version": {
-            "argtypes": (c_void_p, ),
+            "argtypes": (c_void_p,),
             "restype": c_int,
         },
         # void libevdev_set_clock_id(struct libevdev *, int)
@@ -266,7 +294,7 @@ class Libevdev(_LibraryWrapper):
         },
         # int libevdev_get_fd(struct libevdev *)
         "libevdev_get_fd": {
-            "argtypes": (c_void_p, ),
+            "argtypes": (c_void_p,),
             "restype": c_int,
         },
         # int libevdev_grab(struct libevdev *)
@@ -285,29 +313,28 @@ class Libevdev(_LibraryWrapper):
         # const struct input_absinfo *libevdev_get_abs_info(struct libevdev*,  int code)
         "libevdev_kernel_set_abs_info": {
             "argtypes": (c_void_p, c_int, ctypes.POINTER(_InputAbsinfo)),
-            "restype": (c_int)
+            "restype": (c_int),
+        },
+        # int libevdev_kernel_set_led_value(struct libevdev *dev, unsigned int, enum libevdev_led_value);
+        "libevdev_kernel_set_led_value": {
+            "argtypes": (c_void_p, c_int, c_int),
+            "restype": (c_int),
         },
         ##########################
         # Various has_ functions #
         ##########################
-        "libevdev_has_property": {
-            "argtypes": (c_void_p, c_int),
-            "restype": (c_int)
-        },
-        "libevdev_has_event_type": {
-            "argtypes": (c_void_p, c_int),
-            "restype": (c_int)
-        },
+        "libevdev_has_property": {"argtypes": (c_void_p, c_int), "restype": (c_int)},
+        "libevdev_has_event_type": {"argtypes": (c_void_p, c_int), "restype": (c_int)},
         "libevdev_has_event_code": {
             "argtypes": (c_void_p, c_int, c_int),
-            "restype": (c_int)
+            "restype": (c_int),
         },
         ##########################
         # Other functions        #
         ##########################
         "libevdev_set_event_value": {
             "argtypes": (c_void_p, c_int, c_int, c_int),
-            "restype": (c_int)
+            "restype": (c_int),
         },
         "libevdev_get_event_value": {
             "argtypes": (c_void_p, c_int, c_int),
@@ -359,7 +386,7 @@ class Libevdev(_LibraryWrapper):
         },
     }
 
-    def __init__(self, fd=None):
+    def __init__(self, fd: BinaryIO | None = None):
         """
         :param fd: A file-like object
 
@@ -377,7 +404,7 @@ class Libevdev(_LibraryWrapper):
                 # l2 is an unbound device with the REL_X bit set
 
         """
-        super(Libevdev, self).__init__()
+        super().__init__()
         self._ctx = self._new()
         self._file = None
         if fd is not None:
@@ -388,20 +415,20 @@ class Libevdev(_LibraryWrapper):
             self._free(self._ctx)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         :return: A string with the device's kernel name.
         """
         return self._get_name(self._ctx).decode("iso8859-1")
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str | None):
         if name is None:
-            name = ''
+            name = ""
         return self._set_name(self._ctx, name.encode("iso8859-1"))
 
     @property
-    def phys(self):
+    def phys(self) -> str | None:
         """
         :return: A string with the device's kernel phys or None.
         """
@@ -411,14 +438,14 @@ class Libevdev(_LibraryWrapper):
         return phys.decode("iso8859-1")
 
     @phys.setter
-    def phys(self, phys):
+    def phys(self, phys: str | None):
         # libevdev issue: phys may be NULL, but can't be set to NULL
         if phys is None:
-            phys = ''
+            phys = ""
         return self._set_phys(self._ctx, phys.encode("iso8859-1"))
 
     @property
-    def uniq(self):
+    def uniq(self) -> str | None:
         """
         :return: A string with the device's kernel uniq or None.
         """
@@ -431,18 +458,18 @@ class Libevdev(_LibraryWrapper):
     def uniq(self, uniq):
         # libevdev issue: uniq may be NULL, but can't be set to NULL
         if uniq is None:
-            uniq = ''
+            uniq = ""
         return self._set_uniq(self._ctx, uniq.encode("iso8859-1"))
 
     @property
-    def driver_version(self):
+    def driver_version(self) -> int:
         """
         :note: Read-only
         """
         return self._get_driver_version(self._ctx)
 
     @property
-    def id(self):
+    def id(self) -> dict[str, int]:
         """
         :return: A dict with the keys 'bustype', 'vendor', 'product', 'version'.
 
@@ -463,13 +490,10 @@ class Libevdev(_LibraryWrapper):
         vdr = self._get_id_vendor(self._ctx)
         pro = self._get_id_product(self._ctx)
         ver = self._get_id_version(self._ctx)
-        return {"bustype": bus,
-                "vendor": vdr,
-                "product": pro,
-                "version": ver}
+        return {"bustype": bus, "vendor": vdr, "product": pro, "version": ver}
 
     @id.setter
-    def id(self, vals):
+    def id(self, vals: dict[str, int]):
         if "bustype" in vals:
             self._set_id_bustype(self._ctx, vals["bustype"])
         if "vendor" in vals:
@@ -479,7 +503,7 @@ class Libevdev(_LibraryWrapper):
         if "version" in vals:
             self._set_id_version(self._ctx, vals["version"])
 
-    def set_clock_id(self, clock):
+    def set_clock_id(self, clock: int) -> int:
         """
         :param clock: time.CLOCK_MONOTONIC
         :return: a negative errno on failure or 0 on success.
@@ -487,7 +511,7 @@ class Libevdev(_LibraryWrapper):
         return self._set_clock_id(self._ctx, clock)
 
     @property
-    def fd(self):
+    def fd(self) -> BinaryIO | None:
         """
         :return: The file-like object used during constructor or in the most
                  recent assignment to self.fd.
@@ -516,7 +540,7 @@ class Libevdev(_LibraryWrapper):
         return self._file
 
     @fd.setter
-    def fd(self, fileobj):
+    def fd(self, fileobj: BinaryIO):
         try:
             fd = fileobj.fileno()
         except AttributeError:
@@ -550,7 +574,12 @@ class Libevdev(_LibraryWrapper):
         if r != 0:
             raise OSError(-r, os.strerror(-r))
 
-    def absinfo(self, code, new_values=None, kernel=False):
+    def absinfo(
+        self,
+        code: int | str,
+        new_values: dict[str, int] | None = None,
+        kernel: bool = False,
+    ) -> dict[str, int] | None:
         """
         :param code: the ABS_<*> code as integer or as string
         :param new_values: a dict with the same keys as the return values.
@@ -593,15 +622,17 @@ class Libevdev(_LibraryWrapper):
                 if rc != 0:
                     raise OSError(-rc, os.strerror(-rc))
 
-        return {"value": absinfo.contents.value,
-                "minimum": absinfo.contents.minimum,
-                "maximum": absinfo.contents.maximum,
-                "fuzz": absinfo.contents.fuzz,
-                "flat": absinfo.contents.flat,
-                "resolution": absinfo.contents.resolution}
+        return {
+            "value": absinfo.contents.value,
+            "minimum": absinfo.contents.minimum,
+            "maximum": absinfo.contents.maximum,
+            "fuzz": absinfo.contents.fuzz,
+            "flat": absinfo.contents.flat,
+            "resolution": absinfo.contents.resolution,
+        }
 
     @classmethod
-    def property_to_name(cls, prop):
+    def property_to_name(cls, prop) -> str | None:
         """
         :param prop: the numerical property value
         :return: A string with the property name or ``None``
@@ -614,7 +645,7 @@ class Libevdev(_LibraryWrapper):
         return name.decode("iso8859-1")
 
     @classmethod
-    def property_to_value(cls, prop):
+    def property_to_value(cls, prop) -> int | None:
         """
         :param prop: the property name as string
         :return: The numerical property value or ``None``
@@ -627,7 +658,7 @@ class Libevdev(_LibraryWrapper):
         return v
 
     @classmethod
-    def type_max(cls, type):
+    def type_max(cls, type) -> int | None:
         """
         :param type: the EV_<*> event type
         :return: the maximum code for this type or ``None`` if the type is
@@ -639,17 +670,20 @@ class Libevdev(_LibraryWrapper):
         return m if m > -1 else None
 
     @classmethod
-    def event_to_name(cls, event_type, event_code=None):
+    def event_to_name(cls, event_type, event_code=None, event_value=None) -> str | None:
         """
         :param event_type: the numerical event type value
         :param event_code: optional, the numerical event code value
+        :param event_value: optional, the numerical event value
         :return: the event code name if a code is given otherwise the event
                  type name.
 
-        This function is the equivalent to ``libevdev_event_code_get_name()``
-        and ``libevdev_event_type_get_name()``
+        This function is the equivalent to ``libevdev_event_value_get_name()``,
+        ``libevdev_event_code_get_name()``, and ``libevdev_event_type_get_name()``
         """
-        if event_code is not None:
+        if event_code is not None and event_value is not None:
+            name = cls._event_value_get_name(event_type, event_code, event_value)
+        elif event_code is not None:
             name = cls._event_code_get_name(event_type, event_code)
         else:
             name = cls._event_type_get_name(event_type)
@@ -658,17 +692,28 @@ class Libevdev(_LibraryWrapper):
         return name.decode("iso8859-1")
 
     @classmethod
-    def event_to_value(cls, event_type, event_code=None):
+    def event_to_value(
+        cls, event_type, event_code=None, event_value=None
+    ) -> int | None:
         """
         :param event_type: the event type as string
         :param event_code: optional, the event code as string
+        :param event_value: optional, the numerical event value
         :return: the event code value if a code is given otherwise the event
                  type value.
 
-        This function is the equivalent to ``libevdev_event_code_from_name()``
-        and ``libevdev_event_type_from_name()``
+        This function is the equivalent to ``libevdev_event_value_from_name()``,
+        ``libevdev_event_code_from_name()`` and ``libevdev_event_type_from_name()``
         """
-        if event_code is not None:
+        if event_code is not None and event_value is not None:
+            if not isinstance(event_type, int):
+                event_type = cls.event_to_value(event_type)
+            if not isinstance(event_code, int):
+                event_code = cls.event_to_value(event_type, event_code)
+            v = cls._event_value_from_name(
+                event_type, event_code, event_value.encode("iso8859-1")
+            )
+        elif event_code is not None:
             if not isinstance(event_type, int):
                 event_type = cls.event_to_value(event_type)
             v = cls._event_code_from_name(event_type, event_code.encode("iso8859-1"))
@@ -678,7 +723,7 @@ class Libevdev(_LibraryWrapper):
             return None
         return v
 
-    def has_property(self, prop):
+    def has_property(self, prop: int | str) -> bool:
         """
         :param prop: a property, either as integer or string
         :return: True if the device has the property, False otherwise
@@ -688,7 +733,9 @@ class Libevdev(_LibraryWrapper):
         r = self._has_property(self._ctx, prop)
         return bool(r)
 
-    def has_event(self, event_type, event_code=None):
+    def has_event(
+        self, event_type: int | str, event_code: int | str | None = None
+    ) -> bool:
         """
         :param event_type: the event type, either as integer or as string
         :param event_code: optional, the event code, either as integer or as
@@ -706,18 +753,24 @@ class Libevdev(_LibraryWrapper):
             r = self._has_event_code(self._ctx, event_type, event_code)
         return bool(r)
 
-    def _code(self, t, c):
+    def _code(self, t: int | str, c: int | str | None) -> Tuple[int, int]:
         """
         Resolves a type+code tuple, either of which could be integer or
         string. Returns a (t, c) tuple in integers
         """
         if not isinstance(t, int):
-            t = self.event_to_value(t)
+            tv = self.event_to_value(t)
+        else:
+            tv = t
         if c is not None and not isinstance(c, int):
-            c = self.event_to_value(t, c)
-        return (t, c)
+            cv = self.event_to_value(t, c)
+        else:
+            cv = c
+        return (tv, cv)
 
-    def event_value(self, event_type, event_code, new_value=None):
+    def event_value(
+        self, event_type: int | str, event_code: int | str, new_value: int | None = None
+    ) -> int | None:
         """
         :param event_type: the event type, either as integer or as string
         :param event_code: the event code, either as integer or as string
@@ -737,7 +790,7 @@ class Libevdev(_LibraryWrapper):
         return v
 
     @property
-    def num_slots(self):
+    def num_slots(self) -> int | None:
         """
         :return: the number of slots on this device or ``None`` if this device
                  does not support slots
@@ -748,7 +801,7 @@ class Libevdev(_LibraryWrapper):
         return s if s >= 0 else None
 
     @property
-    def current_slot(self):
+    def current_slot(self) -> int | None:
         """
         :return: the current of slots on this device or ``None`` if this device
                  does not support slots
@@ -758,7 +811,9 @@ class Libevdev(_LibraryWrapper):
         s = self._get_current_slot(self._ctx)
         return s if s >= 0 else None
 
-    def slot_value(self, slot, event_code, new_value=None):
+    def slot_value(
+        self, slot: int, event_code: int | str, new_value: int | None = None
+    ) -> int | None:
         """
         :param slot: the numeric slot number
         :param event_code: the ABS_<*> event code, either as integer or string
@@ -774,7 +829,12 @@ class Libevdev(_LibraryWrapper):
         v = self._get_slot_value(self._ctx, slot, c)
         return v
 
-    def enable(self, event_type, event_code=None, data=None):
+    def enable(
+        self,
+        event_type: int | str,
+        event_code: int | str | None = None,
+        data: dict[str, int] | int | None = None,
+    ):
         """
         :param event_type: the event type, either as integer or as string
         :param event_code: optional, the event code, either as integer or as string
@@ -798,18 +858,24 @@ class Libevdev(_LibraryWrapper):
             self._enable_event_type(self._ctx, t)
         else:
             if t == 0x03:  # EV_ABS
-                data = _InputAbsinfo(data.get("value", 0),
-                                     data.get("minimum", 0),
-                                     data.get("maximum", 0),
-                                     data.get("fuzz", 0),
-                                     data.get("flat", 0),
-                                     data.get("resolution", 0))
-                data = ctypes.pointer(data)
+                assert isinstance(data, dict)
+                absinfo = _InputAbsinfo(
+                    data.get("value", 0),
+                    data.get("minimum", 0),
+                    data.get("maximum", 0),
+                    data.get("fuzz", 0),
+                    data.get("flat", 0),
+                    data.get("resolution", 0),
+                )
+                data_arg = ctypes.pointer(absinfo)
             elif t == 0x14:  # EV_REP
-                data = ctypes.pointer(c_int(data))
-            self._enable_event_code(self._ctx, t, c, data)
+                assert isinstance(data, int)
+                data_arg = ctypes.pointer(c_int(data))
+            else:
+                data_arg = None
+            self._enable_event_code(self._ctx, t, c, data_arg)
 
-    def disable(self, event_type, event_code=None):
+    def disable(self, event_type: int | str, event_code: int | str | None = None):
         """
         :param event_type: the event type, either as integer or as string
         :param event_code: optional, the event code, either as integer or as string
@@ -820,7 +886,7 @@ class Libevdev(_LibraryWrapper):
         else:
             self._disable_event_code(self._ctx, t, c)
 
-    def enable_property(self, prop):
+    def enable_property(self, prop: int | str):
         """
         :param prop: the property as integer or string
         """
@@ -829,16 +895,16 @@ class Libevdev(_LibraryWrapper):
 
         self._enable_property(self._ctx, prop)
 
-    def set_led(self, led, on):
+    def set_led(self, led: int | str, on: bool):
         """
         :param led: the LED_<*> name
         :on: True to turn the LED on, False to turn it off
         """
         t, c = self._code("EV_LED", led)
         which = 3 if on else 4
-        self._set_led_value(self._ctx, c, which)
+        self._kernel_set_led_value(self._ctx, c, which)
 
-    def next_event(self, flags=READ_FLAG_NORMAL):
+    def next_event(self, flags: int = READ_FLAG_NORMAL) -> _InputEvent | None:
         """
         :param flags: a set of libevdev read flags. May be omitted to use
                       the normal mode.
@@ -863,6 +929,8 @@ class Libevdev(_LibraryWrapper):
         rc = self._next_event(self._ctx, flags, ctypes.byref(ev))
         if rc == -errno.EAGAIN:
             return None
+        if rc < 0:
+            raise OSError(-rc, os.strerror(-rc))
 
         return ev
 
@@ -881,14 +949,18 @@ class UinputDevice(_LibraryWrapper):
     """
 
     @staticmethod
-    def _cdll():
+    def _cdll() -> ctypes.CDLL:
         return ctypes.CDLL("libevdev.so.2", use_errno=True)
 
     _api_prototypes = {
         # int libevdev_uinput_create_from_device(const struct libevdev *, int, struct libevdev_uinput **)
         "libevdev_uinput_create_from_device": {
-            "argtypes": (c_void_p, c_int, ctypes.POINTER(ctypes.POINTER(_UinputDevice))),
-            "restype": c_int
+            "argtypes": (
+                c_void_p,
+                c_int,
+                ctypes.POINTER(ctypes.POINTER(_UinputDevice)),
+            ),
+            "restype": c_int,
         },
         # int libevdev_uinput_destroy(const struct libevdev *)
         "libevdev_uinput_destroy": {
@@ -908,11 +980,11 @@ class UinputDevice(_LibraryWrapper):
         # int libevdev_uinput_write_event(const struct libevdev *, uint, uint, int)
         "libevdev_uinput_write_event": {
             "argtypes": (c_void_p, c_uint, c_uint, c_int),
-            "restype": c_int
+            "restype": c_int,
         },
     }
 
-    def __init__(self, source, fileobj=None):
+    def __init__(self, source: Libevdev, fileobj: BinaryIO | None = None):
         """
         Create a new uinput device based on the source libevdev device. The
         uinput device will mirror all capabilities from the source device.
@@ -922,7 +994,7 @@ class UinputDevice(_LibraryWrapper):
         libevdev will open the device in managed mode. See the libevdev
         documentation for details.
         """
-        super(UinputDevice, self).__init__()
+        super().__init__()
 
         self._fileobj = fileobj
         if fileobj is None:
@@ -931,26 +1003,37 @@ class UinputDevice(_LibraryWrapper):
             fd = fileobj.fileno()
 
         self._uinput_device = ctypes.POINTER(_UinputDevice)()
-        rc = self._uinput_create_from_device(source._ctx, fd, ctypes.byref(self._uinput_device))
+        rc = self._uinput_create_from_device(
+            source._ctx, fd, ctypes.byref(self._uinput_device)
+        )
         if rc != 0:
             raise OSError(-rc, os.strerror(-rc))
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_):
+        if self._uinput_device is not None:
+            self._uinput_destroy(self._uinput_device)
+            self._uinput_device = None
 
     def __del__(self):
         if self._uinput_device is not None:
             self._uinput_destroy(self._uinput_device)
+            self._uinput_device = None
 
     @property
-    def fd(self):
+    def fd(self) -> BinaryIO | None:
         """
         :return: the file-like object used in the constructor.
         """
-        return self.fileobj
+        return self._fileobj
 
-    def write_event(self, type, code, value):
+    def write_event(self, type: int, code: int, value: int) -> None:
         self._uinput_write_event(self._uinput_device, type, code, value)
 
     @property
-    def devnode(self):
+    def devnode(self) -> str:
         """
         Return a string with the /dev/input/eventX device node
         """
@@ -958,7 +1041,7 @@ class UinputDevice(_LibraryWrapper):
         return devnode.decode("iso8859-1")
 
     @property
-    def syspath(self):
+    def syspath(self) -> str:
         """
         Return a string with the /dev/input/eventX device node
         """

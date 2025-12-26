@@ -8,20 +8,21 @@
 import sys
 import libevdev
 
+
 def main(args):
     path = args[1]
     axis = args[2]
     field = args[3]
     value = int(args[4])
 
-    assert field in ['minimum', 'maximum', 'resolution']
+    assert field in ["minimum", "maximum", "resolution"]
     axis = libevdev.evbit(axis)
     assert axis is not None
 
-    fd = open(path, 'rb')
+    fd = open(path, "rb")
     d = libevdev.Device(fd)
     if not d.has(axis):
-        print('Device does not have axis {}'.format(axis))
+        print("Device does not have axis {}".format(axis))
         sys.exit(1)
 
     a = d.absinfo[axis]
@@ -38,4 +39,3 @@ if __name__ == "__main__":
         print("   <value> .. the numeric value to set the axis field to")
         sys.exit(1)
     main(sys.argv)
-
