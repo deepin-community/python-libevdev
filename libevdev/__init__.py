@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 # Copyright © 2016 Red Hat, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,3 +23,17 @@ from .device import Device, InputAbsInfo
 from .device import InvalidFileError, EventsDroppedException, InvalidArgumentException
 from .event import InputEvent
 from .const import evbit, propbit, EventType, EventCode, InputProperty
+
+__all__ = [
+    "Device",
+    "InputAbsInfo",
+    "InvalidFileError",
+    "EventsDroppedException",
+    "InvalidArgumentException",
+    "InputEvent",
+    "evbit",
+    "propbit",
+    "EventType",
+    "EventCode",
+    "InputProperty",
+]

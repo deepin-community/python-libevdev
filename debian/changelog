@@ -1,3 +1,36 @@
+python-libevdev (0.13.1-1) unstable; urgency=medium
+
+  * New upstream release, switching to pyproject (with hatchling) and
+    pytest.
+  * Drop “Rules-Requires-Root: no” since it’s now the default.
+
+ -- Stephen Kitt <skitt@debian.org>  Mon, 17 Nov 2025 19:14:13 +0100
+
+python-libevdev (0.12-1) unstable; urgency=medium
+
+  * New upstream release, merging intersphinx-mapping.patch.
+  * Add “Built-Using” information to track the Sphinx version used to
+    build the documentation package.
+  * Standards-Version 4.7.2, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Tue, 02 Sep 2025 18:58:35 +0200
+
+python-libevdev (0.11-2) unstable; urgency=medium
+
+  * Fix the intersphinx mapping declaration. Closes: #1090147.
+  * Update debian/watch to handle recent GitLab changes.
+  * Standards-Version 4.7.0, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Tue, 17 Dec 2024 13:42:01 +0100
+
+python-libevdev (0.11-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Track new upstream location.
+  * Standards-Version 4.6.2, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Thu, 07 Mar 2024 13:07:44 +0100
+
 python-libevdev (0.5-3) unstable; urgency=low
 
   [ Debian Janitor ]

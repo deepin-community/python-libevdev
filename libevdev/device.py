@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 # Copyright © 2017 Red Hat, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,14 +19,23 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from __future__ import annotations
+
 import time
 import os
+from typing import BinaryIO, Iterator
+from dataclasses import dataclass
 
 import libevdev
 from ._clib import Libevdev, UinputDevice
-from ._clib import READ_FLAG_SYNC, READ_FLAG_NORMAL, READ_FLAG_FORCE_SYNC, READ_FLAG_BLOCKING
+from ._clib import (
+    READ_FLAG_SYNC,
+    READ_FLAG_NORMAL,
+    READ_FLAG_FORCE_SYNC,
+    READ_FLAG_BLOCKING,
+)
 from .event import InputEvent
-from .const import InputProperty
+from .const import InputProperty, EventCode, EventType
 
 
 class InvalidFileError(Exception):
@@ -35,7 +43,8 @@ class InvalidFileError(Exception):
     A file provided is not a valid file descriptor for libevdev or this
     device must not have a file descriptor
     """
-    pass
+
+    ...
 
 
 class InvalidArgumentException(Exception):
@@ -47,7 +56,8 @@ class InvalidArgumentException(Exception):
 
         A human-readable error message
     """
-    def __init__(self, msg=None):
+
+    def __init__(self, msg: str | None = None):
         self.message = msg
 
     def __repr__(self):
@@ -87,19 +97,17 @@ class EventsDroppedException(Exception):
                     for e in ctx.sync():
                         print(e)
     """
-    pass
+
+    ...
 
 
-class InputAbsInfo(object):
+@dataclass
+class InputAbsInfo:
     """
     A class representing the struct input_absinfo for a given EV_ABS code.
 
     Any of the attributes may be set to None, those that are None are simply
     ignored by libevdev.
-
-    .. attribute:: minimum
-
-        the minimum value of this axis
 
     :property minimum: the minimum value for this axis
     :property maximum: the maximum value for this axis
@@ -108,30 +116,31 @@ class InputAbsInfo(object):
     :property resolution: the resolution for this axis
     :property value: the current value of this axis
     """
-    def __init__(self, minimum=None, maximum=None, fuzz=None, flat=None,
-                 resolution=None, value=None):
-        self.minimum = minimum
-        self.maximum = maximum
-        self.fuzz = fuzz
-        self.flat = flat
-        self.resolution = resolution
-        self.value = value
 
-    def __repr__(self):
-        return 'min:{} max:{} fuzz:{} flat:{} resolution:{} value:{}'.format(
-               self.minimum, self.maximum, self.fuzz, self.flat,
-               self.resolution, self.value)
+    minimum: int | None = None
+    maximum: int | None = None
+    fuzz: int | None = None
+    flat: int | None = None
+    resolution: int | None = None
+    value: int | None = None
 
-    def __eq__(self, other):
-        return (self.minimum == other.minimum and
-                self.maximum == other.maximum and
-                self.value == other.value and
-                self.resolution == other.resolution and
-                self.fuzz == other.fuzz and
-                self.flat == other.flat)
+    def __repr__(self) -> str:
+        return f"min:{self.minimum} max:{self.maximum} fuzz:{self.fuzz} flat:{self.flat} resolution:{self.resolution} value:{self.value}"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, InputAbsInfo):
+            return NotImplemented
+        return (
+            self.minimum == other.minimum
+            and self.maximum == other.maximum
+            and self.value == other.value
+            and self.resolution == other.resolution
+            and self.fuzz == other.fuzz
+            and self.flat == other.flat
+        )
 
 
-class Device(object):
+class Device:
     """
     This class represents an evdev device backed by libevdev. The device may
     represent a real device in the system or a constructed device where the
@@ -158,83 +167,93 @@ class Device(object):
     :type fd: A file-like object
 
     """
+
     class _EventValueSet:
-        def __init__(self, parent_device):
+        def __init__(self, parent_device: "Device") -> None:
             self._device = parent_device
 
-        def __getitem__(self, code):
+        def __getitem__(self, code: EventCode) -> int | None:
             # calling device.value[slot axis] is a bug on MT devices
-            if (code.type == libevdev.EV_ABS and
-               code >= libevdev.EV_ABS.ABS_MT_SLOT and
-               self._device.num_slots is not None):
-                raise InvalidArgumentException('Cannot fetch value for MT axes')
+            if (
+                code.type == libevdev.EV_ABS
+                and code >= libevdev.ABS_MT_SLOT
+                and self._device.num_slots is not None
+            ):
+                raise InvalidArgumentException("Cannot fetch value for MT axes")
             return self._device._libevdev.event_value(code.type.value, code.value)
 
     class _InputAbsInfoSet:
-        def __init__(self, parent_device):
+        def __init__(self, parent_device: "Device") -> None:
             self._device = parent_device
 
-        def __getitem__(self, code):
+        def __getitem__(self, code: EventCode) -> InputAbsInfo | None:
             assert code.type == libevdev.EV_ABS
 
             r = self._device._libevdev.absinfo(code.value)
             if r is None:
                 return r
 
-            return InputAbsInfo(r['minimum'], r['maximum'],
-                                r['fuzz'], r['flat'],
-                                r['resolution'], r['value'])
+            return InputAbsInfo(
+                r["minimum"],
+                r["maximum"],
+                r["fuzz"],
+                r["flat"],
+                r["resolution"],
+                r["value"],
+            )
 
-        def __setitem__(self, code, absinfo):
+        def __setitem__(self, code: EventCode, absinfo: InputAbsInfo) -> None:
             assert code.type == libevdev.EV_ABS
 
             if not self._device.has(code):
-                raise InvalidArgumentException('Device does not have event code')
+                raise InvalidArgumentException("Device does not have event code")
 
             data = {}
             if absinfo.minimum is not None:
-                data['minimum'] = absinfo.minimum
+                data["minimum"] = absinfo.minimum
             if absinfo.maximum is not None:
-                data['maximum'] = absinfo.maximum
+                data["maximum"] = absinfo.maximum
             if absinfo.fuzz is not None:
-                data['fuzz'] = absinfo.fuzz
+                data["fuzz"] = absinfo.fuzz
             if absinfo.flat is not None:
-                data['flat'] = absinfo.flat
+                data["flat"] = absinfo.flat
             if absinfo.resolution is not None:
-                data['resolution'] = absinfo.resolution
+                data["resolution"] = absinfo.resolution
             if absinfo.value is not None:
-                data['value'] = absinfo.value
+                data["value"] = absinfo.value
 
             self._device._libevdev.absinfo(code.value, data)
 
     class _SlotValue:
-        def __init__(self, device, slot):
+        def __init__(self, device: "Device", slot: int) -> None:
             self._device = device
             self._slot = slot
 
-        def __getitem__(self, code):
-            if (code.type is not libevdev.EV_ABS or
-               code <= libevdev.EV_ABS.ABS_MT_SLOT):
-                raise InvalidArgumentException('Event code must be one of EV_ABS.ABS_MT_*')
+        def __getitem__(self, code: EventCode) -> int | None:
+            if code.type != libevdev.EV_ABS or code <= libevdev.ABS_MT_SLOT:
+                raise InvalidArgumentException(
+                    "Event code must be one of EV_ABS.ABS_MT_*"
+                )
 
             if not self._device.has(code):
                 return None
 
             return self._device._libevdev.slot_value(self._slot, code.value)
 
-        def __setitem__(self, code, value):
-            if (code.type is not libevdev.EV_ABS or
-               code <= libevdev.EV_ABS.ABS_MT_SLOT):
-                raise InvalidArgumentException('Event code must be one of EV_ABS.ABS_MT_*')
+        def __setitem__(self, code: EventCode, value: int) -> None:
+            if code.type != libevdev.EV_ABS or code <= libevdev.ABS_MT_SLOT:
+                raise InvalidArgumentException(
+                    "Event code must be one of EV_ABS.ABS_MT_*"
+                )
 
             if not self._device.has(code):
-                raise InvalidArgumentException('Event code does not exist')
+                raise InvalidArgumentException("Event code does not exist")
 
             self._device._libevdev.slot_value(self._slot, code.value, new_value=value)
 
-    def __init__(self, fd=None):
+    def __init__(self, fd: BinaryIO | None = None) -> None:
         self._libevdev = Libevdev(fd)
-        self._uinput = None
+        self._uinput: UinputDevice | None = None
         self._is_grabbed = False
         self._values = Device._EventValueSet(self)
         self._absinfos = Device._InputAbsInfoSet(self)
@@ -246,66 +265,79 @@ class Device(object):
                 self._libevdev.set_clock_id(1)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         :returns: the device name
         """
         return self._libevdev.name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         self._libevdev.name = name
 
     @property
-    def phys(self):
+    def phys(self) -> str | None:
         """
         :returns: the device's kernel phys or None.
         """
         return self._libevdev.phys
 
     @phys.setter
-    def phys(self, phys):
+    def phys(self, phys: str | None):
         self._libevdev.phys = phys
 
     @property
-    def uniq(self):
+    def uniq(self) -> str | None:
         """
         :returns: the device's uniq string or None
         """
         return self._libevdev.uniq
 
     @uniq.setter
-    def uniq(self, uniq):
+    def uniq(self, uniq: str | None):
         self._libevdev.uniq = uniq
 
     @property
-    def driver_version(self):
+    def driver_version(self) -> int:
         """
         :returns: the device's driver version
         """
         return self._libevdev.driver_version
 
     @property
-    def id(self):
+    def id(self) -> dict[str, int]:
         """
-        :returns: A dict with the keys 'bustype', 'vendor', 'product', 'version'.
+        :returns: A dict with the keys ``'bustype'``, ``'vendor'``,
+                  ``'product'``, ``'version'``.
 
         When used as a setter, only existing keys are applied to the
         device. For example, to update the product ID only::
 
                 ctx = Device()
-                id["property"] = 1234
-                ctx.id = id
+                ids = {'product' : 1234}
+                ctx.id = ids
+
+        You must assign a new dictionary to ``id``. Technical limitations
+        prohibit accessing the ``id`` dictionary itself for write access.
+        See this example: ::
+
+                $ ctx = Device()
+                $ ctx.id['vendor'] = 1234
+                $ print(ctx.id['vendor'])
+                0
+                $ ctx.id = {'vendor': 1234}
+                $ print(ctx.id['vendor'])
+                1234
 
         """
         return self._libevdev.id
 
     @id.setter
-    def id(self, vals):
+    def id(self, vals: dict[str, int]):
         self._libevdev.id = vals
 
     @property
-    def fd(self):
+    def fd(self) -> BinaryIO | None:
         """
         This fd represents the file descriptor to this device, if any. If no
         fd was provided in the constructor, None is returned. If the device
@@ -334,7 +366,7 @@ class Device(object):
         return self._libevdev.fd
 
     @fd.setter
-    def fd(self, fileobj):
+    def fd(self, fileobj: BinaryIO):
         if self._libevdev.fd is None:
             raise InvalidFileError()
         self._libevdev.fd = fileobj
@@ -346,7 +378,7 @@ class Device(object):
             self.grab()
 
     @property
-    def evbits(self):
+    def evbits(self) -> dict[EventType, list[EventCode]]:
         """
         Returns a dict with all supported event types and event codes, in
         the form of::
@@ -371,32 +403,32 @@ class Device(object):
         return types
 
     @property
-    def properties(self):
+    def properties(self) -> list[InputProperty]:
         """
         Returns a list of all supported input properties
         """
         return [p for p in libevdev.props if self.has_property(p)]
 
-    def has_property(self, prop):
+    def has_property(self, prop: InputProperty) -> bool:
         """
         :param prop: a property
         :returns: True if the device has the property, False otherwise
         """
         return self._libevdev.has_property(prop.value)
 
-    def has(self, evcode):
+    def has(self, evcode: EventType | EventCode) -> bool:
         """
         :param evcode: the event type or event code
         :type evcode: EventType or EventCode
         :returns: True if the device has the type and/or code, False otherwise
         """
-        try:
+        if isinstance(evcode, EventCode):
             return self._libevdev.has_event(evcode.type.value, evcode.value)
-        except AttributeError:
+        else:
             return self._libevdev.has_event(evcode.value)
 
     @property
-    def num_slots(self):
+    def num_slots(self) -> int | None:
         """
         :returns: the number of slots on this device or ``None`` if this device
                  does not support slots
@@ -406,7 +438,7 @@ class Device(object):
         return self._libevdev.num_slots
 
     @property
-    def current_slot(self):
+    def current_slot(self) -> int | None:
         """
         :returns: the current slot on this device or ``None`` if this device
                  does not support slots
@@ -416,7 +448,7 @@ class Device(object):
         return self._libevdev.current_slot
 
     @property
-    def absinfo(self):
+    def absinfo(self) -> "Device._InputAbsInfoSet":
         """
         Query the device's absinfo for the given event code. This attribute
         can both query and modify the :class:`InputAbsInfo` values of this
@@ -466,7 +498,7 @@ class Device(object):
         """
         return self._absinfos
 
-    def sync_absinfo_to_kernel(self, code):
+    def sync_absinfo_to_kernel(self, code: EventCode) -> None:
         """
         Synchronizes our view of an absinfo axis to the kernel, thus
         updating the the device for every other client. This function should
@@ -485,25 +517,36 @@ class Device(object):
             >>> d.sync_absinfo_to_kernel(libevdev.EV_ABS.ABS_X)
         """
         a = self.absinfo[code]
-        data = {"minimum": a.minimum,
-                "maximum": a.maximum,
-                "fuzz": a.fuzz,
-                "flat": a.flat,
-                "resolution": a.resolution}
+        assert a is not None
+        assert a.minimum is not None
+        assert a.maximum is not None
+        assert a.resolution is not None
+        assert a.fuzz is not None
+        assert a.flat is not None
+        data = {
+            "minimum": a.minimum,
+            "maximum": a.maximum,
+            "fuzz": a.fuzz,
+            "flat": a.flat,
+            "resolution": a.resolution,
+        }
         self._libevdev.absinfo(code.value, new_values=data, kernel=True)
 
-    def events(self):
+    def events(self) -> Iterator[InputEvent]:
         """
         Returns an iterable with currently pending events.
 
         Event processing should look like this::
 
             fd = open("/dev/input/event0", "rb")
+            fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)  # optional
             ctx = libevdev.Device(fd)
 
             while True:
                 for e in ctx.events():
                     print(e):
+
+                ... other mainloop code ...
 
         This function detects if the file descriptor is in blocking or
         non-blocking mode and adjusts its behavior accordingly. If the file
@@ -514,7 +557,7 @@ class Device(object):
         :returns: an iterable with the currently pending events
         """
         if self._libevdev.fd is None:
-            return []
+            return iter(())
 
         if os.get_blocking(self._libevdev.fd.fileno()):
             flags = READ_FLAG_BLOCKING
@@ -524,12 +567,13 @@ class Device(object):
         ev = self._libevdev.next_event(flags)
         while ev is not None:
             code = libevdev.evbit(ev.type, ev.code)
+            assert code is not None
             yield InputEvent(code, ev.value, ev.sec, ev.usec)
-            if code == libevdev.EV_SYN.SYN_DROPPED:
+            if code == libevdev.SYN_DROPPED:
                 raise EventsDroppedException()
             ev = self._libevdev.next_event(flags)
 
-    def sync(self, force=False):
+    def sync(self, force: bool = False) -> Iterator[InputEvent]:
         """
         Returns an iterator with events pending to re-sync the caller's
         view of the device with the one from libevdev.
@@ -539,7 +583,7 @@ class Device(object):
             may have changed while libevdev was not processing events.
         """
         if self._libevdev.fd is None:
-            return []
+            return iter(())
 
         if force:
             flags = READ_FLAG_FORCE_SYNC
@@ -549,11 +593,12 @@ class Device(object):
         ev = self._libevdev.next_event(flags)
         while ev is not None:
             code = libevdev.evbit(ev.type, ev.code)
+            assert code is not None
             yield InputEvent(code, ev.value, ev.sec, ev.usec)
             ev = self._libevdev.next_event(flags)
 
     @property
-    def value(self):
+    def value(self) -> "Device._EventValueSet":
         """
         Returns the current value for a given event code or None where the
         event code does not exist on the device::
@@ -576,7 +621,7 @@ class Device(object):
         return self._values
 
     @property
-    def slots(self):
+    def slots(self) -> tuple["Device._SlotValue", ...]:
         """
         Returns a tuple with the available slots, each of which contains a
         wrapper object to access a slot value::
@@ -605,11 +650,15 @@ class Device(object):
         """
 
         if self.num_slots is None:
-            raise InvalidArgumentException('Device has no slots')
+            raise InvalidArgumentException("Device has no slots")
 
         return tuple(Device._SlotValue(self, slot) for slot in range(self.num_slots))
 
-    def enable(self, event_code, data=None):
+    def enable(
+        self,
+        event_code: EventCode | EventType | InputProperty,
+        data: InputAbsInfo | int | None = None,
+    ) -> None:
         """
         Enable an event type or event code on this device, even if not
         supported by this device.
@@ -642,25 +691,33 @@ class Device(object):
             self._libevdev.enable_property(event_code.value)
             return
 
-        try:
+        if isinstance(event_code, EventCode):
+            raw_data = None
             if event_code.type == libevdev.EV_ABS:
                 if data is None or not isinstance(data, InputAbsInfo):
-                    raise InvalidArgumentException('enabling EV_ABS codes requires an InputAbsInfo')
+                    raise InvalidArgumentException(
+                        "enabling EV_ABS codes requires an InputAbsInfo"
+                    )
 
-                data = {"minimum": data.minimum or 0,
-                        "maximum": data.maximum or 0,
-                        "fuzz": data.fuzz or 0,
-                        "flat": data.flat or 0,
-                        "resolution": data.resolution or 0}
+                raw_data = {
+                    "minimum": data.minimum or 0,
+                    "maximum": data.maximum or 0,
+                    "fuzz": data.fuzz or 0,
+                    "flat": data.flat or 0,
+                    "resolution": data.resolution or 0,
+                }
             elif event_code.type == libevdev.EV_REP:
-                if data is None:
-                    raise InvalidArgumentException('enabling EV_REP codes requires an integer')
+                if data is None or not isinstance(data, int):
+                    raise InvalidArgumentException(
+                        "enabling EV_REP codes requires an integer"
+                    )
+                raw_data = data
 
-            self._libevdev.enable(event_code.type.value, event_code.value, data)
-        except AttributeError:
+            self._libevdev.enable(event_code.type.value, event_code.value, raw_data)
+        elif isinstance(event_code, EventType):
             self._libevdev.enable(event_code.value)
 
-    def disable(self, event_code):
+    def disable(self, event_code: EventCode | EventType) -> None:
         """
         Disable the given event type or event code on this device. If the
         device does not support this type or code, this function does
@@ -679,14 +736,13 @@ class Device(object):
         """
         if isinstance(event_code, InputProperty):
             raise NotImplementedError()
-
-        try:
+        elif isinstance(event_code, EventCode):
             self._libevdev.disable(event_code.type.value, event_code.value)
-        except AttributeError:
+        elif isinstance(event_code, EventType):
             self._libevdev.disable(event_code.value)
 
     @property
-    def devnode(self):
+    def devnode(self) -> str | None:
         """
         Returns the device node for this device. The device node is None if
         this device has not been created as uinput device.
@@ -696,7 +752,7 @@ class Device(object):
         return self._uinput.devnode
 
     @property
-    def syspath(self):
+    def syspath(self) -> str | None:
         """
         Returns the syspath for this device. The syspath is None if this
         device has not been created as uinput device.
@@ -705,7 +761,7 @@ class Device(object):
             return None
         return self._uinput.syspath
 
-    def create_uinput_device(self, uinput_fd=None):
+    def create_uinput_device(self, uinput_fd: BinaryIO | None = None) -> "Device":
         """
         Creates and returns a new :class:`Device` based on this libevdev
         device. The new device is equivalent to one created with
@@ -732,12 +788,13 @@ class Device(object):
         :param uinput_fd: A file descriptor to the /dev/input/uinput device. If None, the device is opened and closed automatically.
         :raises: OSError
         """
-        d = libevdev.Device()
+        d = Device()
         d.name = self.name
         d.id = self.id
 
         for t, cs in self.evbits.items():
             for c in cs:
+                data: InputAbsInfo | int | None
                 if t == libevdev.EV_ABS:
                     data = self.absinfo[c]
                 elif t == libevdev.EV_REP:
@@ -747,12 +804,12 @@ class Device(object):
                 d.enable(c, data)
 
         for p in self.properties:
-            self.enable(p)
+            d.enable(p)
 
         d._uinput = UinputDevice(self._libevdev, uinput_fd)
         return d
 
-    def send_events(self, events):
+    def send_events(self, events: list[InputEvent]) -> None:
         """
         Send the list of :class:`InputEvent` events through this device. All
         events must have a valid :class:`EventCode` and value, the timestamp
@@ -773,16 +830,21 @@ class Device(object):
         if not self._uinput:
             raise InvalidFileError()
 
-        if None in [e.code for e in events]:
-            raise InvalidArgumentException('All events must have an event code')
+        if any(e.type is None or e.code is None for e in events):
+            raise InvalidArgumentException(
+                "All events must have an event type and code"
+            )
 
-        if None in [e.value for e in events]:
-            raise InvalidArgumentException('All events must have a value')
+        if any(e.code.value is None for e in events):  # type: ignore
+            raise InvalidArgumentException("All events must have a value")
 
         for e in events:
+            assert (
+                e.code is not None and e.code.value is not None and e.value is not None
+            )
             self._uinput.write_event(e.type.value, e.code.value, e.value)
 
-    def grab(self):
+    def grab(self) -> None:
         """
         Exclusively grabs the device, preventing events from being seen by
         anyone else. This includes in-kernel consumers of the events (e.g.
@@ -799,7 +861,7 @@ class Device(object):
             d.grab()
             # device is now exclusively grabbed
 
-            fd.close()
+            fd1.close()
             fd2 = open("/dev/input/event0", "rb")
             d.fd = fd2
             # device is now exclusively grabbed
@@ -816,9 +878,27 @@ class Device(object):
 
         self._is_grabbed = True
 
-    def ungrab(self):
+    def ungrab(self) -> None:
         """
         Removes an exclusive grabs on the device, see :func:`grab`.
         """
         self._libevdev.grab(False)
         self._is_grabbed = False
+
+    def set_leds(self, leds: list[tuple[EventCode, int]]) -> None:
+        """
+        Write the LEDs to the device::
+
+             >>> fd = open(path, 'r+b', buffering=0)
+             >>> d = libevdev.Device(fd)
+             >>> d.set_leds([(libevdev.EV_LED.LED_NUML, 0),
+                             (libevdev.EV_LED.LED_SCROLLL, 1)])
+
+        Updating LED states require the fd to be in write-mode.
+        """
+        for led in leds:
+            if led[0].type is not libevdev.EV_LED:
+                raise InvalidArgumentException("Event code must be one of EV_LED.*")
+
+        for led in leds:
+            self._libevdev.set_led(led[0].value, led[1] != 0)

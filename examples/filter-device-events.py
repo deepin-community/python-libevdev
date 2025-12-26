@@ -14,16 +14,16 @@ def main(args):
     code_from = libevdev.evbit(args[2])
     code_to = libevdev.evbit(args[3])
 
-    print('Remapping {} to {}'.format(code_from, code_to))
+    print("Remapping {} to {}".format(code_from, code_to))
 
-    fd = open(path, 'rb')
+    fd = open(path, "rb")
     d = libevdev.Device(fd)
     d.grab()
 
     # create a duplicate of our input device
     d.enable(code_to)  # make sure the code we map to is available
     uidev = d.create_uinput_device()
-    print('Device is at {}'.format(uidev.devnode))
+    print("Device is at {}".format(uidev.devnode))
 
     while True:
         for e in d.events():
